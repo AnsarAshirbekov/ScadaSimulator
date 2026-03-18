@@ -15,4 +15,14 @@ enum class PlowState {
     Stopped
 };
 
+enum class DamperState {
+    Closed,
+    Open
+};
+
+enum class DamperMode {
+    Manual,
+    Auto
+};
+
 #endif // PROCESSSTATES_H

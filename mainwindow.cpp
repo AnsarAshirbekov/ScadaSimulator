@@ -7,6 +7,7 @@
 #include "widgets/processwidget.h"
 #include "dialogs/motorcontroldialog.h"
 #include "dialogs/plowcontroldialog.h"
+#include "dialogs/dampercontroldialog.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -42,6 +43,14 @@ MainWindow::MainWindow(QWidget *parent)
     {
         plowDialogs.append(new PlowControlDialog(QString("ПС-Б%1").arg(i), this));
     }
+
+    QVector<DamperControlDialog*> damperDialogs;
+
+    for(int i = 1; i <= 10; i++)
+        damperDialogs.append(new DamperControlDialog(QString("З-А%1").arg(i), this));
+
+    for(int i = 1; i <= 10; i++)
+        damperDialogs.append(new DamperControlDialog(QString("З-Б%1").arg(i), this));
 
     ui->centralwidget->setLayout(mainLayout);
 
@@ -126,6 +135,46 @@ MainWindow::MainWindow(QWidget *parent)
                         dialog->updateState(state);
                 });
     }
+
+    connect(process, &ProcessWidget::damperClicked,
+            this, [damperDialogs](int index)
+            {
+                damperDialogs[index]->show();
+            });
+
+    for(int i = 0; i < damperDialogs.size(); i++)
+    {
+        auto dialog = damperDialogs[i];
+
+        connect(dialog, &DamperControlDialog::openRequested,
+                process, &ProcessWidget::damperOpen);
+
+        connect(dialog, &DamperControlDialog::closeRequested,
+                process, &ProcessWidget::damperClose);
+
+        connect(dialog, &DamperControlDialog::modeChanged,
+                process, [process, i](DamperMode mode)
+                {
+                    process->damperSetMode(i, mode);
+                });
+
+        connect(process, &ProcessWidget::damperStateChanged,
+                this,
+                [dialog, i](int index, DamperState state)
+                {
+                    if(index == i)
+                        dialog->setState(state);
+                });
+
+        connect(process, &ProcessWidget::damperModeChanged,
+                this,
+                [dialog, i](int index, DamperMode mode)
+                {
+                    if(index == i)
+                        dialog->setMode(mode);
+                });
+    }
+
 }
 
 MainWindow::~MainWindow()

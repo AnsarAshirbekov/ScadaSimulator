@@ -7,10 +7,10 @@
 PlowControlDialog::PlowControlDialog(const QString& name, QWidget *parent)
     : QDialog(parent), m_plowName(name)
 {
-    setWindowTitle("Плужковый сбрасыватель");
+    setWindowTitle("Пульт плужкового сбрасывателя");
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    titleLabel = new QLabel("Пульт управления " + m_plowName);
+    titleLabel = new QLabel("Управление плужковым сбрасывателем " + m_plowName);
     titleLabel->setAlignment(Qt::AlignCenter);
 
     setStyleSheet("background-color: #2c2c2c; color: white;");

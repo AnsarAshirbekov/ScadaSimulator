@@ -85,6 +85,27 @@ ProcessWidget::ProcessWidget(QWidget *parent)
         m_plows.append(plow);
     }
 
+    for(int i = 0; i < CONVEYOR_COUNT * PLOWS_PER_CONVEYOR; i++)
+    {
+        Damper *damper = new Damper(this);
+
+        connect(m_plows[i], &Plow::positionChanged,
+                damper, &Damper::updateFromPlow);
+
+        connect(damper, &Damper::stateChanged,
+                this, [this, i](DamperState state)
+                {
+                    emit damperStateChanged(i, state);
+                });
+
+        connect(damper, &Damper::modeChanged,
+                this, [this, i](DamperMode mode)
+                {
+                    emit damperModeChanged(i, mode);
+                });
+
+        m_dampers.append(damper);
+    }
 }
 
 QRect ProcessWidget::getMotorRect(int centerY)
@@ -298,7 +319,9 @@ void ProcessWidget::drawPlow(QPainter& p, int x, QRect beltRect, int plowPositio
                              .arg(motorIndex == 0 ? "А" : "Б")
                              .arg(plowIndex + 1);
 
-    drawDamper(p, chute, mirror, damperName);
+    int damperIndex = motorIndex * PLOWS_PER_CONVEYOR + plowIndex;
+
+    drawDamper(p, chute, mirror, damperName, damperIndex);
 }
 
 void ProcessWidget::drawPlows(QPainter& p, QRect beltRect, int conveyor)
@@ -359,7 +382,7 @@ void ProcessWidget::drawConveyor(QPainter& p, int conveyor, int centerY, int w)
     drawPlows(p, beltRect, conveyor);
 }
 
-void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror, const QString& name)
+void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror, const QString& name, int index)
 {
     QRect pipe;
 
@@ -388,7 +411,8 @@ void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror,
     p.drawRect(pipe);
 
     // заслонка
-    QPen damperPen(QColor(0,60,0), 5);
+    QColor damperColor = m_dampers[index]->state() == DamperState::Open ? Qt::green : Qt::red;
+    QPen damperPen(damperColor, 5);
     p.setPen(damperPen);
 
     int y = pipe.center().y();
@@ -585,6 +609,78 @@ void ProcessWidget::mousePressEvent(QMouseEvent *event)
             }
         }
     }
+
+    for(int conveyor = 0; conveyor < CONVEYOR_COUNT; conveyor++)
+    {
+        QRect beltRect =
+            getBeltRect(centerY, w).translated(0, conveyor * CONVEYOR_SPACING);
+
+        for(int i = 0; i < PLOWS_PER_CONVEYOR; i++)
+        {
+            double t = (double)i / PLOWS_PER_CONVEYOR;
+
+            int plowX =
+                beltRect.left() +
+                beltRect.width() * (0.1 + t * 0.8);
+
+            QRect plowFrame(
+                plowX - 30,
+                beltRect.top() - 10,
+                60,
+                beltRect.height() + 20
+                );
+
+            QRect chute;
+
+            if(conveyor == 0)
+            {
+                chute = QRect(
+                    plowFrame.left() - 15,
+                    beltRect.bottom() + 10,
+                    plowFrame.width(),
+                    40
+                    );
+            }
+            else
+            {
+                chute = QRect(
+                    plowFrame.left() - 15,
+                    beltRect.top() - 50,
+                    plowFrame.width(),
+                    40
+                    );
+            }
+
+            QRect pipe;
+
+            if(conveyor == 0)
+            {
+                pipe = QRect(
+                    chute.left() + chute.width()/2 - 8,
+                    chute.bottom(),
+                    16,
+                    80
+                    );
+            }
+            else
+            {
+                pipe = QRect(
+                    chute.left() + chute.width()/2 - 8,
+                    chute.top() - 80,
+                    16,
+                    80
+                    );
+            }
+
+            if(pipe.contains(event->pos()))
+            {
+                int index = conveyor * PLOWS_PER_CONVEYOR + i;
+
+                m_selectedDamper = index;
+                emit damperClicked(index);
+            }
+        }
+    }
 }
 
 void ProcessWidget::setRunning(int index, bool running)
@@ -622,4 +718,22 @@ void ProcessWidget::plowStop()
 {
     if(m_selectedPlow >= 0)
         m_plows[m_selectedPlow]->stop();
+}
+
+void ProcessWidget::damperOpen()
+{
+    if(m_selectedDamper >= 0)
+        m_dampers[m_selectedDamper]->open();
+}
+
+void ProcessWidget::damperClose()
+{
+    if(m_selectedDamper >= 0)
+        m_dampers[m_selectedDamper]->close();
+}
+
+void ProcessWidget::damperSetMode(int index, DamperMode mode)
+{
+    if(index >= 0 && index < m_dampers.size())
+        m_dampers[index]->setMode(mode);
 }

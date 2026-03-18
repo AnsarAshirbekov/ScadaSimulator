@@ -6,6 +6,7 @@
 #include "equipment/plow.h"
 #include "equipment/processstates.h"
 #include "equipment/motor.h"
+#include "equipment/damper.h"
 
 class ProcessWidget : public QWidget
 {
@@ -24,6 +25,10 @@ public:
     void plowRaise();
     void plowStop();
 
+    void damperOpen();
+    void damperClose();
+    void damperSetMode(int index, DamperMode mode);
+
 signals:
     void motorClicked(int index);
     void stateChanged(int index, ProcessState state);
@@ -32,6 +37,10 @@ signals:
     void plowPositionChanged(int index, int percent);
     void plowStateChanged(int index, PlowState state);
     void plowClicked(int index);
+
+    void damperClicked(int index);
+    void damperStateChanged(int index, DamperState state);
+    void damperModeChanged(int index, DamperMode mode);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -46,8 +55,10 @@ private:
     QVector<Motor*> m_motors;
     QVector<Plow*> m_plows;
     QVector<QPoint> m_pipeEnds;
+    QVector<Damper*> m_dampers;
 
     int m_selectedPlow = -1;
+    int m_selectedDamper = -1;
 
     bool m_plowBlink = false;
     bool m_arrowBlink = false;
@@ -63,7 +74,7 @@ private:
                     const QString& name, int motorIndex, int plowIndex);
     void drawPlows(QPainter& p, QRect beltRect, int conveyor);
     void drawConveyor(QPainter& p, int conveyor, int centerY, int w);
-    void drawDamper(QPainter& p, const QRect& chuteRect, bool mirror, const QString& name);
+    void drawDamper(QPainter& p, const QRect& chuteRect, bool mirror, const QString& name, int index);
     void drawMainPipes(QPainter& p);
     void drawAspiration(QPainter& p, int x, int y, const QString& name);
 };

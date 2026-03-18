@@ -9,10 +9,10 @@
 MotorControlDialog::MotorControlDialog(const QString& name, QWidget *parent)
     : QDialog(parent), m_equipmentName(name)
 {
-    setWindowTitle("Пульт управления конвейером");
+    setWindowTitle("Пульт конвейера");
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    titleLabel = new QLabel("Пульт управления " + m_equipmentName);
+    titleLabel = new QLabel("Управление конвейером " + m_equipmentName);
     titleLabel->setAlignment(Qt::AlignCenter);
 
     setStyleSheet("background-color: #2c2c2c; color: white;");

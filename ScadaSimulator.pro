@@ -9,24 +9,30 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    dialogs/dampercontroldialog.cpp \
     equipment/conveyor.cpp \
+    equipment/damper.cpp \
     equipment/motor.cpp \
     equipment/plow.cpp \
     main.cpp \
     mainwindow.cpp \
     dialogs/motorcontroldialog.cpp \
     dialogs/plowcontroldialog.cpp \
-    widgets/processwidget.cpp
+    widgets/processwidget.cpp \
+    widgets/toggleswitch.cpp
 
 HEADERS += \
+    dialogs/dampercontroldialog.h \
     equipment/conveyor.h \
+    equipment/damper.h \
     equipment/motor.h \
     equipment/plow.h \
     equipment/processstates.h \
     mainwindow.h \
     dialogs/motorcontroldialog.h \
     dialogs/plowcontroldialog.h \
-    widgets/processwidget.h
+    widgets/processwidget.h \
+    widgets/toggleswitch.h
 
 FORMS += \
     mainwindow.ui
