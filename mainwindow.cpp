@@ -8,6 +8,9 @@
 #include "dialogs/motorcontroldialog.h"
 #include "dialogs/plowcontroldialog.h"
 #include "dialogs/dampercontroldialog.h"
+#include "dialogs/aspcontroldialog.h"
+#include "events/eventlogger.h"
+#include "dialogs/eventlogdialog.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -21,36 +24,182 @@ MainWindow::MainWindow(QWidget *parent)
 
     ProcessWidget *process = new ProcessWidget();
 
-    mainLayout->addWidget(process);
+    EventLogger *logger = new EventLogger(this);
+
+    process->setLogger(logger);
+
+    QPushButton* logButton = new QPushButton();
+    logButton->setFixedSize(40, 40);
+    logButton->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444;
+            border-radius: 10px;
+        }
+        QPushButton:hover {
+            background-color: #666;
+        }
+    )");
+    logButton->setIcon(QIcon(":/icons/icons/log.png"));
+    logButton->setIconSize(QSize(24,24));
+    logButton->setToolTip("Журнал событий");
+
+    QLabel* title = new QLabel("Галерея ленточных конвейеров");
+    title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet(R"(
+        QLabel {
+            color: black;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+    )");
+
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+    QWidget *leftSpacer = new QWidget();
+    leftSpacer->setFixedWidth(80);
+    headerLayout->addWidget(leftSpacer);
+    headerLayout->addStretch();
+    headerLayout->addWidget(title);
+    headerLayout->addStretch();
+    headerLayout->addWidget(logButton);
+    headerLayout->setContentsMargins(10, 5, 30, 0);
+
+    mainLayout->addLayout(headerLayout);
+    mainLayout->addWidget(process, 1);
+    mainLayout->setContentsMargins(0, 0, 0, 40);
+    mainLayout->setSpacing(5);
+
+    QHBoxLayout *sensorLayout = new QHBoxLayout();
+
+    QPushButton* kslAButton = new QPushButton();
+    kslAButton->setFixedSize(45, 45);
+    kslAButton->setCheckable(true);
+    kslAButton->setStyleSheet(R"(
+    QPushButton {
+        background-color: #444;
+        border-radius: 10px;
+        }
+        QPushButton:hover {
+            background-color: #666;
+        }
+        QPushButton:checked {
+            background-color: red;
+            border: 2px solid #ff5555;
+        }
+    )");
+    kslAButton->setIcon(QIcon(":/icons/icons/ksl.png"));
+    kslAButton->setIconSize(QSize(24,24));
+    kslAButton->setToolTip("КСЛ-А (сход ленты)");
+
+    QPushButton* kslBButton = new QPushButton();
+    kslBButton->setFixedSize(45, 45);
+    kslBButton->setCheckable(true);
+    kslBButton->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444;
+            border-radius: 10px;
+        }
+        QPushButton:hover {
+            background-color: #666;
+        }
+        QPushButton:checked {
+            background-color: red;
+            border: 2px solid #ff5555;
+        }
+    )");
+    kslBButton->setIcon(QIcon(":/icons/icons/ksl.png"));
+    kslBButton->setIconSize(QSize(24,24));
+    kslBButton->setToolTip("КСЛ-Б (сход ленты)");
+
+    QPushButton* cleanAU1Button = new QPushButton();
+    cleanAU1Button->setFixedSize(45, 45);
+    cleanAU1Button->setCheckable(true);
+    cleanAU1Button->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444;
+            border-radius: 10px;
+        }
+        QPushButton:hover {
+            background-color: #666;
+        }
+    )");
+    cleanAU1Button->setIcon(QIcon(":/icons/icons/clean.png"));
+    cleanAU1Button->setIconSize(QSize(24,24));
+    cleanAU1Button->setToolTip("Очистка АУ-1");
+
+    QPushButton* cleanAU2Button = new QPushButton();
+    cleanAU2Button->setFixedSize(45, 45);
+    cleanAU2Button->setCheckable(true);
+    cleanAU2Button->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444;
+            border-radius: 10px;
+        }
+        QPushButton:hover {
+            background-color: #666;
+        }
+    )");
+    cleanAU2Button->setIcon(QIcon(":/icons/icons/clean.png"));
+    cleanAU2Button->setIconSize(QSize(24,24));
+    cleanAU2Button->setToolTip("Очистка АУ-2");
+
+    sensorLayout->addStretch();
+    sensorLayout->addWidget(kslAButton);
+    sensorLayout->addSpacing(20);
+    sensorLayout->addWidget(kslBButton);
+    sensorLayout->addSpacing(40);
+    sensorLayout->addWidget(cleanAU1Button);
+    sensorLayout->addSpacing(20);
+    sensorLayout->addWidget(cleanAU2Button);
+    sensorLayout->addStretch();
+
+    mainLayout->addLayout(sensorLayout);
+
+    connect(logButton, &QPushButton::clicked, this, [this, logger]()
+            {
+                EventLogDialog* dialog = new EventLogDialog(logger, this);
+                dialog->show();
+            });
 
     QVector<MotorControlDialog*> motorDialogs;
 
     QStringList conveyorNames = {"ЛК-А", "ЛК-Б"};
 
-    for(const QString& name : conveyorNames)
+    for(int i = 0; i < conveyorNames.size(); i++)
     {
-        motorDialogs.append(new MotorControlDialog(name, this));
+        motorDialogs.append(new MotorControlDialog(i, conveyorNames[i], this));
     }
 
     QVector<PlowControlDialog*> plowDialogs;
 
-    for(int i = 1; i <= 10; i++)
+    for(int i = 0; i < 20; i++)
     {
-        plowDialogs.append(new PlowControlDialog(QString("ПС-А%1").arg(i), this));
-    }
+        QString name = QString("ПС-%1%2")
+                           .arg(i < 10 ? "А" : "Б")
+                           .arg(i % 10 + 1);
 
-    for(int i = 1; i <= 10; i++)
-    {
-        plowDialogs.append(new PlowControlDialog(QString("ПС-Б%1").arg(i), this));
+        plowDialogs.append(new PlowControlDialog(i, name, this));
     }
 
     QVector<DamperControlDialog*> damperDialogs;
 
-    for(int i = 1; i <= 10; i++)
-        damperDialogs.append(new DamperControlDialog(QString("З-А%1").arg(i), this));
+    for(int i = 0; i < 20; i++)
+    {
+        QString name = QString("З-%1%2")
+                           .arg(i < 10 ? "А" : "Б")
+                           .arg(i % 10 + 1);
 
-    for(int i = 1; i <= 10; i++)
-        damperDialogs.append(new DamperControlDialog(QString("З-Б%1").arg(i), this));
+        damperDialogs.append(new DamperControlDialog(i, name, this));
+    }
+
+    QVector<AspControlDialog*> aspDialogs;
+
+    QStringList aspNames = {"АУ-1", "АУ-2"};
+
+    for(int i = 0; i < aspNames.size(); i++)
+    {
+        aspDialogs.append(new AspControlDialog(i, aspNames[i], this));
+    }
 
     ui->centralwidget->setLayout(mainLayout);
 
@@ -66,29 +215,36 @@ MainWindow::MainWindow(QWidget *parent)
 
         connect(dialog, &MotorControlDialog::startRequested,
                 process,
-                [process, i]()
+                [process](int index)
                 {
-                    process->setRunning(i, true);
+                    process->motorStart(index);
                 });
 
         connect(dialog, &MotorControlDialog::stopRequested,
                 process,
-                [process, i]()
+                [process](int index)
                 {
-                    process->setRunning(i, false);
+                    process->motorStop(index);
                 });
 
         connect(dialog, &MotorControlDialog::speedRequested,
                 process,
-                [process, i](int speed)
+                [process](int index, int speed)
                 {
-                    process->setTargetSpeed(i, speed);
+                    process->setTargetSpeed(index, speed);
+                });
+
+        connect(dialog, &MotorControlDialog::resetRequested,
+                process,
+                [process](int index)
+                {
+                    process->motorReset(index);
                 });
     }
 
     connect(process, &ProcessWidget::stateChanged,
             this,
-            [motorDialogs](int index, ProcessState state)
+            [motorDialogs](int index, MotorState state)
             {
                 motorDialogs[index]->updateState(state);
             });
@@ -111,13 +267,25 @@ MainWindow::MainWindow(QWidget *parent)
         PlowControlDialog* dialog = plowDialogs[i];
 
         connect(dialog, &PlowControlDialog::lowerRequested,
-                process, &ProcessWidget::plowLower);
+                process,
+                [process](int index)
+                {
+                    process->plowLower(index);
+                });
 
         connect(dialog, &PlowControlDialog::raiseRequested,
-                process, &ProcessWidget::plowRaise);
+                process,
+                [process](int index)
+                {
+                    process->plowRaise(index);
+                });
 
         connect(dialog, &PlowControlDialog::stopRequested,
-                process, &ProcessWidget::plowStop);
+                process,
+                [process](int index)
+                {
+                    process->plowStop(index);
+                });
 
         connect(process, &ProcessWidget::plowPositionChanged,
                 dialog,
@@ -144,18 +312,26 @@ MainWindow::MainWindow(QWidget *parent)
 
     for(int i = 0; i < damperDialogs.size(); i++)
     {
-        auto dialog = damperDialogs[i];
+        DamperControlDialog* dialog = damperDialogs[i];
 
         connect(dialog, &DamperControlDialog::openRequested,
-                process, &ProcessWidget::damperOpen);
+                process,
+                [process](int index)
+                {
+                    process->damperOpen(index);
+                });
 
         connect(dialog, &DamperControlDialog::closeRequested,
-                process, &ProcessWidget::damperClose);
+                process,
+                [process](int index)
+                {
+                    process->damperClose(index);
+                });
 
         connect(dialog, &DamperControlDialog::modeChanged,
-                process, [process, i](DamperMode mode)
+                process, [process](int index, DamperMode mode)
                 {
-                    process->damperSetMode(i, mode);
+                    process->damperSetMode(index, mode);
                 });
 
         connect(process, &ProcessWidget::damperStateChanged,
@@ -175,6 +351,152 @@ MainWindow::MainWindow(QWidget *parent)
                 });
     }
 
+    connect(process, &ProcessWidget::aspClicked,
+            this, [aspDialogs](int index)
+            {
+                aspDialogs[index]->show();
+            });
+
+    for(int i = 0; i < aspDialogs.size(); i++)
+    {
+        AspControlDialog* dialog = aspDialogs[i];
+
+        connect(dialog, &AspControlDialog::turnOnRequested,
+                process,
+                [process](int index)
+                {
+                    process->aspTurnOn(index);
+                });
+
+        connect(dialog, &AspControlDialog::turnOffRequested,
+                process,
+                [process](int index)
+                {
+                    process->aspTurnOff(index);
+                });
+
+        connect(dialog, &AspControlDialog::modeChanged,
+                process, [process](int index, AspirationMode mode)
+                {
+                    process->aspSetMode(index, mode);
+                });
+
+        connect(process, &ProcessWidget::aspStateChanged,
+                dialog,
+                [dialog, i](int index, AspirationState state)
+                {
+                    if(index == i)
+                        dialog->setState(state);
+                });
+
+        connect(process, &ProcessWidget::aspModeChanged,
+                dialog,
+                [dialog, i](int index, AspirationMode mode)
+                {
+                    if(index == i)
+                        dialog->setMode(mode);
+                });
+    }
+
+    connect(kslAButton, &QPushButton::toggled, this,
+            [this, process, logger](bool checked)
+    {
+        if(checked)
+        {
+            process->motorFault(0);
+
+            if(logger)
+                logger->log("АВАРИЯ: сход ленты конвейера ЛК-А", true);
+        } else {
+            process->openKSL(0);
+            if(logger)
+                logger->log("Сход ленты конвейера ЛК-А в норме");
+        }
+    });
+
+    connect(kslBButton, &QPushButton::toggled, this,
+            [this, process, logger](bool checked)
+    {
+        if(checked)
+        {
+            process->motorFault(1);
+
+            if(logger)
+                logger->log("АВАРИЯ: сход ленты конвейера ЛК-Б", true);
+        } else {
+            process->openKSL(1);
+            if(logger)
+                logger->log("Сход ленты конвейера ЛК-Б в норме");
+        }
+    });
+
+    connect(cleanAU1Button, &QPushButton::clicked, this,
+            [process, logger, cleanAU1Button]()
+    {
+        if(cleanAU1Button->property("active").toBool())
+            return;
+
+        cleanAU1Button->setProperty("active", true);
+
+        cleanAU1Button->setStyleSheet(R"(
+            QPushButton {
+                background-color: blue;
+                border-radius: 10px;
+                border: 2px solid #ff5555;
+            }
+        )");
+
+        process->aspRequestCleaning(0);
+
+        if(logger)
+            logger->log("Запрос очистки АУ-1");
+    });
+
+    connect(cleanAU2Button, &QPushButton::clicked, this,
+            [process, logger, cleanAU2Button]()
+    {
+        if(cleanAU2Button->property("active").toBool())
+            return;
+
+        cleanAU2Button->setProperty("active", true);
+
+        cleanAU2Button->setStyleSheet(R"(
+            QPushButton {
+                background-color: blue;
+                border-radius: 10px;
+                border: 2px solid #ff5555;
+            }
+        )");
+
+        process->aspRequestCleaning(1);
+
+        if(logger)
+            logger->log("Запрос очистки АУ-2");
+    });
+
+    connect(process, &ProcessWidget::cleaningFinished,
+            this, [cleanAU1Button, cleanAU2Button, logger](int index)
+    {
+        QPushButton* btn = (index == 0) ? cleanAU1Button : cleanAU2Button;
+
+        btn->setProperty("active", false);
+
+        btn->setStyleSheet(R"(
+            QPushButton {
+                background-color: #444;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #666;
+            }
+        )");
+
+        if(logger)
+        {
+            QString name = (index == 0) ? "АУ-1" : "АУ-2";
+            logger->log(QString("Процесс очистки %1 завершен").arg(name));
+        }
+    });
 }
 
 MainWindow::~MainWindow()

@@ -15,17 +15,18 @@ class DamperControlDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit DamperControlDialog(const QString& name, QWidget *parent = nullptr);
+    explicit DamperControlDialog(int index, const QString& name, QWidget *parent = nullptr);
 
     void setState(DamperState state);
     void setMode(DamperMode mode);
 
 signals:
-    void openRequested();
-    void closeRequested();
-    void modeChanged(DamperMode mode);
+    void openRequested(int index);
+    void closeRequested(int index);
+    void modeChanged(int index, DamperMode mode);
 
 private:
+    int m_index;
     QLabel *m_nameLabel;
     QLabel *m_stateLabel;
     QCheckBox *m_modeSwitch;

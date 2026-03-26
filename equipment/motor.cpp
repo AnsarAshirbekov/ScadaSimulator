@@ -7,7 +7,10 @@ Motor::Motor(QObject *parent)
 
     connect(&m_startDelayTimer, &QTimer::timeout, this, [this]() {
 
-        m_state = ProcessState::Running;
+        if(m_state != MotorState::PreStart)
+            return;
+
+        m_state = MotorState::Running;
         m_currentSpeed = 10;
         m_targetSpeed = 10;
 
@@ -17,7 +20,7 @@ Motor::Motor(QObject *parent)
 
     connect(&m_speedTimer, &QTimer::timeout, this, [this]() {
 
-        if (m_state != ProcessState::Running)
+        if (m_state != MotorState::Running)
             return;
 
         if (m_currentSpeed < m_targetSpeed)
@@ -34,9 +37,12 @@ Motor::Motor(QObject *parent)
 
 void Motor::start()
 {
-    if (m_state == ProcessState::Stopped)
+    if (m_fault)
+        return;
+
+    if (m_state == MotorState::Stopped)
     {
-        m_state = ProcessState::PreStart;
+        m_state = MotorState::PreStart;
         emit stateChanged(m_state);
 
         m_startDelayTimer.start(10000);
@@ -45,7 +51,12 @@ void Motor::start()
 
 void Motor::stop()
 {
-    m_state = ProcessState::Stopped;
+    if (m_fault)
+        return;
+
+    m_startDelayTimer.stop();
+
+    m_state = MotorState::Stopped;
 
     m_currentSpeed = 10;
     m_targetSpeed = 10;
@@ -64,7 +75,47 @@ int Motor::currentSpeed() const
     return m_currentSpeed;
 }
 
-ProcessState Motor::state() const
+MotorState Motor::state() const
 {
     return m_state;
+}
+
+void Motor::triggerFault()
+{
+    m_startDelayTimer.stop();
+
+    m_fault = true;
+    m_state = MotorState::Fault;
+
+    m_currentSpeed = 10;
+    m_targetSpeed = 10;
+
+    emit stateChanged(m_state);
+    emit speedChanged(m_currentSpeed);
+}
+
+void Motor::resetFault()
+{
+    if(m_KSLClosed)
+        return;
+
+    m_fault = false;
+    m_state = MotorState::Stopped;
+
+    emit stateChanged(m_state);
+}
+
+bool Motor::isFault() const
+{
+    return m_fault;
+}
+
+void Motor::closeKSL()
+{
+    m_KSLClosed = true;
+}
+
+void Motor::openKSL()
+{
+    m_KSLClosed = false;
 }

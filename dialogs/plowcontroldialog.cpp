@@ -4,8 +4,8 @@
 #include <QLabel>
 #include <QLCDNumber>
 
-PlowControlDialog::PlowControlDialog(const QString& name, QWidget *parent)
-    : QDialog(parent), m_plowName(name)
+PlowControlDialog::PlowControlDialog(int index, const QString& name, QWidget *parent)
+    : QDialog(parent), m_index(index), m_plowName(name)
 {
     setWindowTitle("Пульт плужкового сбрасывателя");
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -51,15 +51,15 @@ PlowControlDialog::PlowControlDialog(const QString& name, QWidget *parent)
     setLayout(layout);
 
     connect(btnRaise,&QPushButton::clicked,this,[this](){
-        emit raiseRequested();
+        emit raiseRequested(m_index);
     });
 
     connect(btnLower,&QPushButton::clicked,this,[this](){
-        emit lowerRequested();
+        emit lowerRequested(m_index);
     });
 
     connect(btnStop,&QPushButton::clicked,this,[this](){
-        emit stopRequested();
+        emit stopRequested(m_index);
     });
 
     updateState(PlowState::Raised);

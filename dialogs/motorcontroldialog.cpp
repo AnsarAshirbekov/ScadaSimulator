@@ -6,8 +6,8 @@
 #include <QSlider>
 #include <QLCDNumber>
 
-MotorControlDialog::MotorControlDialog(const QString& name, QWidget *parent)
-    : QDialog(parent), m_equipmentName(name)
+MotorControlDialog::MotorControlDialog(int index, const QString& name, QWidget *parent)
+    : QDialog(parent), m_index(index), m_equipmentName(name)
 {
     setWindowTitle("Пульт конвейера");
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -20,10 +20,12 @@ MotorControlDialog::MotorControlDialog(const QString& name, QWidget *parent)
     lblState = new QLabel();
     lblState->setAlignment(Qt::AlignCenter);
 
-    QPushButton *btnStart = new QPushButton("ПУСК");
-    QPushButton *btnStop = new QPushButton("СТОП");
+    btnStart = new QPushButton("ПУСК");
+    btnStop = new QPushButton("СТОП");
+    btnReset = new QPushButton("СБРОС АВАРИИ");
     btnStart->setStyleSheet("background-color: green; color: white;");
     btnStop->setStyleSheet("background-color: red; color: white;");
+    btnReset->setStyleSheet("background-color: orange; color: black;");
 
     speedSlider = new QSlider(Qt::Horizontal);
     speedSlider->setRange(10, 100);
@@ -64,6 +66,7 @@ MotorControlDialog::MotorControlDialog(const QString& name, QWidget *parent)
     layout->addWidget(lblState);
     layout->addWidget(btnStart);
     layout->addWidget(btnStop);
+    layout->addWidget(btnReset);
     layout->addWidget(new QLabel("Скорость (%)"));
     layout->addWidget(speedSlider);
     layout->addWidget(speedDisplay);
@@ -71,42 +74,63 @@ MotorControlDialog::MotorControlDialog(const QString& name, QWidget *parent)
     setLayout(layout);
 
     connect(btnStart, &QPushButton::clicked, this, [this](){
-        emit startRequested();
+        emit startRequested(m_index);
     });
 
     connect(btnStop, &QPushButton::clicked, this, [this](){
-        emit stopRequested();
+        emit stopRequested(m_index);
     });
 
     connect(speedSlider, &QSlider::valueChanged,
             speedDisplay, QOverload<int>::of(&QLCDNumber::display));
 
     connect(speedSlider, &QSlider::valueChanged, this, [this](int value){
-        emit speedRequested(value);
+        emit speedRequested(m_index, value);
     });
 
-    updateState(ProcessState::Stopped);
+    connect(btnReset, &QPushButton::clicked, this, [this](){
+        emit resetRequested(m_index);
+    });
+
+    updateState(MotorState::Stopped);
 }
 
-void MotorControlDialog::updateState(ProcessState state)
+void MotorControlDialog::updateState(MotorState state)
 {
     switch (state)
     {
-        case ProcessState::Stopped:
+        case MotorState::Stopped:
             lblState->setText("Остановлен");
+            btnStart->setEnabled(true);
+            btnStop->setEnabled(false);
+            btnReset->setEnabled(false);
             speedSlider->setEnabled(false);
             speedSlider->setValue(10); // Сброс в минимум
             speedDisplay->display(speedSlider->value());
             break;
 
-        case ProcessState::PreStart:
-            lblState->setText(("Предпусковая сигнализация.."));
+        case MotorState::PreStart:
+            lblState->setText("Предпусковая сигнализация..");
+            btnStart->setEnabled(false);
+            btnStop->setEnabled(true);
+            btnReset->setEnabled(false);
             speedSlider->setEnabled(false);
             break;
 
-        case ProcessState::Running:
+        case MotorState::Running:
             lblState->setText("В работе");
+            btnStart->setEnabled(false);
+            btnStop->setEnabled(true);
+            btnReset->setEnabled(false);
             speedSlider->setEnabled(true);
+            break;
+
+        case MotorState::Fault:
+            lblState->setText("АВАРИЯ (КСЛ)");
+            btnStart->setEnabled(false);
+            btnStop->setEnabled(false);
+            btnReset->setEnabled(true);
+            speedSlider->setEnabled(false);
             break;
     }
 }

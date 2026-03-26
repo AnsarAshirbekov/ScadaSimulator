@@ -17,19 +17,27 @@ public:
     void setTargetSpeed(int speed);
 
     int currentSpeed() const;
-    ProcessState state() const;
+    MotorState state() const;
+
+    void triggerFault();
+    void resetFault();
+    bool isFault() const;
+    void closeKSL();
+    void openKSL();
 
 signals:
-    void stateChanged(ProcessState state);
+    void stateChanged(MotorState state);
     void speedChanged(int speed);
 
 private:
-    ProcessState m_state = ProcessState::Stopped;
+    MotorState m_state = MotorState::Stopped;
 
     int m_currentSpeed = 0;
     int m_targetSpeed = 0;
     QTimer m_startDelayTimer;
     QTimer m_speedTimer;
+    bool m_fault = false;
+    bool m_KSLClosed = false;
 };
 
 #endif // MOTOR_H

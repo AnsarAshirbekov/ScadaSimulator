@@ -13,16 +13,17 @@ class PlowControlDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit PlowControlDialog(const QString& name, QWidget *parent = nullptr);
+    explicit PlowControlDialog(int index, const QString& name, QWidget *parent = nullptr);
     void setPosition(int percent);
     void updateState(PlowState state);
 
 signals:
-    void raiseRequested();
-    void lowerRequested();
-    void stopRequested();
+    void raiseRequested(int index);
+    void lowerRequested(int index);
+    void stopRequested(int index);
 
 private:
+    int m_index;
     QString m_plowName;
     QLabel *titleLabel;
     QLabel *lblState;

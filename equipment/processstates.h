@@ -1,10 +1,11 @@
 #ifndef PROCESSSTATES_H
 #define PROCESSSTATES_H
 
-enum class ProcessState {
+enum class MotorState {
     Stopped,
     PreStart,
-    Running
+    Running,
+    Fault
 };
 
 enum class PlowState {
@@ -21,6 +22,17 @@ enum class DamperState {
 };
 
 enum class DamperMode {
+    Manual,
+    Auto
+};
+
+enum class AspirationState {
+    Off,
+    On,
+    Cleaning
+};
+
+enum class AspirationMode {
     Manual,
     Auto
 };

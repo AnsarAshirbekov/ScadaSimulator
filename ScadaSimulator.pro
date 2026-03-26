@@ -9,11 +9,15 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    dialogs/aspcontroldialog.cpp \
     dialogs/dampercontroldialog.cpp \
+    dialogs/eventlogdialog.cpp \
+    equipment/aspiration.cpp \
     equipment/conveyor.cpp \
     equipment/damper.cpp \
     equipment/motor.cpp \
     equipment/plow.cpp \
+    events/eventlogger.cpp \
     main.cpp \
     mainwindow.cpp \
     dialogs/motorcontroldialog.cpp \
@@ -22,12 +26,16 @@ SOURCES += \
     widgets/toggleswitch.cpp
 
 HEADERS += \
+    dialogs/aspcontroldialog.h \
     dialogs/dampercontroldialog.h \
+    dialogs/eventlogdialog.h \
+    equipment/aspiration.h \
     equipment/conveyor.h \
     equipment/damper.h \
     equipment/motor.h \
     equipment/plow.h \
     equipment/processstates.h \
+    events/eventlogger.h \
     mainwindow.h \
     dialogs/motorcontroldialog.h \
     dialogs/plowcontroldialog.h \
@@ -46,3 +54,6 @@ CONFIG += embed_translations
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+RESOURCES += \
+    resources.qrc

@@ -11,7 +11,7 @@ ProcessWidget::ProcessWidget(QWidget *parent)
     connect(&m_animationTimer, &QTimer::timeout, this, [this]() {
         for(int i = 0; i < m_motors.size(); i++)
         {
-            if(m_motors[i]->state() == ProcessState::Running)
+            if(m_motors[i]->state() == MotorState::Running)
             {
                 double speedFactor = m_motors[i]->currentSpeed() / 20.0;
 
@@ -25,7 +25,7 @@ ProcessWidget::ProcessWidget(QWidget *parent)
         bool prestart = false;
         for(int i = 0; i < m_motors.size(); i++)
         {
-            if(m_motors[i]->state() == ProcessState::PreStart)
+            if(m_motors[i]->state() == MotorState::PreStart)
             {
                 prestart = true;
                 break;
@@ -36,6 +36,20 @@ ProcessWidget::ProcessWidget(QWidget *parent)
 
         m_plowBlink = !m_plowBlink;
         m_arrowBlink = !m_arrowBlink;
+        m_aspBlink = !m_aspBlink;
+
+        for(int i = 0; i < m_aspirations.size(); i++)
+        {
+            m_aspirations[i]->updateFromMotors(m_motors);
+
+            if(m_aspirations[i]->state() == AspirationState::On)
+            {
+                m_aspOffsets[i] += 1.5;
+
+                if(m_aspOffsets[i] > 20)
+                    m_aspOffsets[i] = 0;
+            }
+        }
 
         update();
     });
@@ -48,7 +62,7 @@ ProcessWidget::ProcessWidget(QWidget *parent)
 
         connect(motor, &Motor::stateChanged,
                 this,
-                [this, i](ProcessState state)
+                [this, i](MotorState state)
                 {
                     emit stateChanged(i, state);
                 });
@@ -106,6 +120,32 @@ ProcessWidget::ProcessWidget(QWidget *parent)
 
         m_dampers.append(damper);
     }
+
+    for(int i = 0; i < ASPIRATION_COUNT; i++)
+    {
+        Aspiration* asp = new Aspiration(this);
+
+        connect(asp, &Aspiration::stateChanged,
+                this, [this, i](AspirationState state)
+                {
+                    emit aspStateChanged(i, state);
+                });
+
+        connect(asp, &Aspiration::modeChanged,
+                this, [this, i](AspirationMode mode)
+                {
+                    emit aspModeChanged(i, mode);
+                });
+
+        connect(asp, &Aspiration::cleaningFinished,
+                this, [this, i]()
+                {
+                    emit cleaningFinished(i);
+                });
+
+        m_aspOffsets.append(0.0);
+        m_aspirations.append(asp);
+    }
 }
 
 QRect ProcessWidget::getMotorRect(int centerY)
@@ -131,7 +171,7 @@ QRect ProcessWidget::getBeltRect(int centerY, int w)
 void ProcessWidget::drawMotor(QPainter& p, const QRect& rect, int index)
 {
     QColor motorColor =
-        m_motors[index]->state() == ProcessState::Running ? Qt::red : Qt::green;
+        m_motors[index]->state() == MotorState::Running ? Qt::red : Qt::green;
 
     p.setBrush(motorColor);
     p.setPen(Qt::black);
@@ -151,14 +191,22 @@ void ProcessWidget::drawLamp(QPainter& p, const QRect& rect, int index)
 {
     QColor lampColor;
 
-    if (m_motors[index]->state() == ProcessState::Running)
+    if (m_motors[index]->state() == MotorState::Fault)
+    {
+        lampColor = Qt::red;
+    }
+    else if (m_motors[index]->state() == MotorState::Running)
+    {
         lampColor = Qt::yellow;
-
-    else if (m_motors[index]->state() == ProcessState::PreStart)
+    }
+    else if (m_motors[index]->state() == MotorState::PreStart)
+    {
         lampColor = m_lampOn ? Qt::red : QColor(100,0,0);
-
+    }
     else
+    {
         lampColor = QColor(60,60,60);
+    }
 
     p.setBrush(lampColor);
     p.setPen(Qt::black);
@@ -174,7 +222,7 @@ void ProcessWidget::drawBelt(QPainter& p, const QRect& rect, int index)
     QPen pen(Qt::white, 3);
     pen.setStyle(Qt::DashLine);
 
-    if (m_motors[index]->state() == ProcessState::Running)
+    if (m_motors[index]->state() == MotorState::Running)
     {
         pen.setDashPattern({10,10});
         pen.setDashOffset(-m_offsets[index]);
@@ -284,7 +332,7 @@ void ProcessWidget::drawPlow(QPainter& p, int x, QRect beltRect, int plowPositio
 
     QColor arrowColor = Qt::black;
 
-    if (m_motors[motorIndex]->state() == ProcessState::Running &&
+    if (m_motors[motorIndex]->state() == MotorState::Running &&
         plowPosition > 40)
     {
         arrowColor = m_arrowBlink ? Qt::red : QColor(120,0,0);
@@ -405,12 +453,10 @@ void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror,
             );
     }
 
-    // труба
     p.setBrush(QColor(0,100,0));
     p.setPen(Qt::black);
     p.drawRect(pipe);
 
-    // заслонка
     QColor damperColor = m_dampers[index]->state() == DamperState::Open ? Qt::green : Qt::red;
     QPen damperPen(damperColor, 5);
     p.setPen(damperPen);
@@ -444,6 +490,49 @@ void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror,
         pipe.center().y() + 5,
         name
         );
+
+    int plowIndex = index % PLOWS_PER_CONVEYOR;
+    int aspIndex = plowIndex < 5 ? 0 : 1;
+    bool aspOn = m_aspirations[aspIndex]->state() == AspirationState::On;
+    bool damperOpen = m_dampers[index]->state() == DamperState::Open;
+
+    if(aspOn && damperOpen)
+    {
+        p.save();
+
+        QPen pen(Qt::white, 2);
+        pen.setStyle(Qt::DashLine);
+        pen.setDashPattern({6,6});
+
+        if(!mirror)
+        {
+            pen.setDashOffset(-m_aspOffsets[aspIndex]);
+
+            p.setPen(pen);
+
+            p.drawLine(
+                pipe.center().x(),
+                pipe.top(),
+                pipe.center().x(),
+                pipe.bottom()
+                );
+        }
+        else
+        {
+            pen.setDashOffset(-m_aspOffsets[aspIndex]);
+
+            p.setPen(pen);
+
+            p.drawLine(
+                pipe.center().x(),
+                pipe.bottom(),
+                pipe.center().x(),
+                pipe.top()
+                );
+        }
+
+        p.restore();
+    }
 }
 
 void ProcessWidget::drawMainPipes(QPainter& p)
@@ -471,6 +560,26 @@ void ProcessWidget::drawMainPipes(QPainter& p)
 
     p.drawRect(pipe1);
 
+    if(m_aspirations[0]->state() == AspirationState::On)
+    {
+        p.save();
+        QPen pen(Qt::white, 3);
+        pen.setStyle(Qt::DashLine);
+        pen.setDashPattern({10,10});
+
+        pen.setDashOffset(-m_aspOffsets[0]);
+
+        p.setPen(pen);
+
+        p.drawLine(
+            pipe1.right(),
+            pipe1.center().y(),
+            pipe1.left(),
+            pipe1.center().y()
+            );
+        p.restore();
+    }
+
     // вторая магистраль
     startX = m_pipeEnds[5].x() - 20;
     endX   = m_pipeEnds[9].x() + 70;
@@ -484,8 +593,28 @@ void ProcessWidget::drawMainPipes(QPainter& p)
 
     p.drawRect(pipe2);
 
+    if(m_aspirations[1]->state() == AspirationState::On)
+    {
+        p.save();
+        QPen pen(Qt::white, 3);
+        pen.setStyle(Qt::DashLine);
+        pen.setDashPattern({10,10});
+
+        pen.setDashOffset(-m_aspOffsets[1]);
+
+        p.setPen(pen);
+
+        p.drawLine(
+            pipe2.left(),
+            pipe2.center().y(),
+            pipe2.right(),
+            pipe2.center().y()
+            );
+        p.restore();
+    }
+
     // левая установка
-    drawAspiration(p, m_pipeEnds[0].x() - 110, y, "АУ-1");
+    drawAspiration(p, m_pipeEnds[0].x() - 110, y, "АУ-1", 0);
 
     QFont font = p.font();
     font.setPointSize(10);
@@ -494,10 +623,10 @@ void ProcessWidget::drawMainPipes(QPainter& p)
     p.setPen(Qt::black);
 
     // правая установка
-    drawAspiration(p, m_pipeEnds[9].x() + 110, y, "АУ-2");
+    drawAspiration(p, m_pipeEnds[9].x() + 110, y, "АУ-2", 1);
 }
 
-void ProcessWidget::drawAspiration(QPainter& p, int x, int y, const QString& name)
+void ProcessWidget::drawAspiration(QPainter& p, int x, int y, const QString& name, int index)
 {
     int size = 80;
 
@@ -512,7 +641,6 @@ void ProcessWidget::drawAspiration(QPainter& p, int x, int y, const QString& nam
     p.setPen(Qt::black);
     p.drawRect(body);
 
-    // вентилятор
     QPoint c = body.center();
 
     QPolygon fan;
@@ -520,10 +648,24 @@ void ProcessWidget::drawAspiration(QPainter& p, int x, int y, const QString& nam
         << QPoint(c.x() - 12, c.y() + 12)
         << QPoint(c.x() + 12, c.y() + 12);
 
-    p.setBrush(Qt::black);
+    bool isOn = m_aspirations[index]->state() == AspirationState::On;
+    bool isCLeaning = m_aspirations[index]->state() == AspirationState::Cleaning;
+
+    QColor fanColor = Qt::black;
+
+    if(isOn)
+    {
+        fanColor = m_aspBlink ? Qt::red : QColor(120,0,0);
+    }
+
+    if(isCLeaning)
+    {
+        fanColor = m_aspBlink ? Qt::blue : QColor(0, 0, 80);
+    }
+
+    p.setBrush(fanColor);
     p.drawPolygon(fan);
 
-    // подпись
     p.setPen(Qt::black);
     p.drawText(body.adjusted(0, size/2 + 15, 0, 0),
                Qt::AlignCenter,
@@ -604,7 +746,6 @@ void ProcessWidget::mousePressEvent(QMouseEvent *event)
             {
                 int index = conveyor * PLOWS_PER_CONVEYOR + i;
 
-                m_selectedPlow = index;
                 emit plowClicked(index);
             }
         }
@@ -676,64 +817,261 @@ void ProcessWidget::mousePressEvent(QMouseEvent *event)
             {
                 int index = conveyor * PLOWS_PER_CONVEYOR + i;
 
-                m_selectedDamper = index;
                 emit damperClicked(index);
             }
         }
     }
+
+    int y = (m_pipeEnds[0].y() + m_pipeEnds[10].y()) / 2;
+
+    QRect asp1(
+        m_pipeEnds[0].x() - 110 - 40,
+        y - 40,
+        80,
+        80
+        );
+
+    QRect asp2(
+        m_pipeEnds[9].x() + 110 - 40,
+        y - 40,
+        80,
+        80
+        );
+
+    if(asp1.contains(event->pos()))
+    {
+        emit aspClicked(0);
+    }
+
+    if(asp2.contains(event->pos()))
+    {
+        emit aspClicked(1);
+    }
 }
 
-void ProcessWidget::setRunning(int index, bool running)
+void ProcessWidget::motorStart(int index)
 {
-    if(index < 0 || index >= m_motors.size())
-        return;
-
-    if (running)
+    if(index >= 0 && index < m_motors.size())
         m_motors[index]->start();
-    else
+
+    if(m_logger)
+    {
+        QString name = index == 0 ? "ЛК-А" : "ЛК-Б";
+
+        m_logger->log(
+            QString("Конвейер %1 запущен").arg(name)
+        );
+    }
+}
+
+void ProcessWidget::motorStop(int index)
+{
+    if(index >= 0 && index < m_motors.size())
         m_motors[index]->stop();
+
+    if(m_logger)
+    {
+        QString name = index == 0 ? "ЛК-А" : "ЛК-Б";
+
+        m_logger->log(
+            QString("Конвейер %1 остановлен").arg(name)
+            );
+    }
 }
 
 void ProcessWidget::setTargetSpeed(int index, int speed)
 {
-    if(index < 0 || index >= m_motors.size())
-        return;
+    if(index >= 0 && index < m_motors.size())
+        m_motors[index]->setTargetSpeed(speed);
 
-    m_motors[index]->setTargetSpeed(speed);
+    if(m_logger)
+    {
+        QString name = index == 0 ? "ЛК-А" : "ЛК-Б";
+
+        m_logger->log(
+            QString("Задана скорость %1 для конвейера %2").arg(speed).arg(name)
+            );
+    }
 }
 
-void ProcessWidget::plowLower()
+void ProcessWidget::motorFault(int index)
 {
-    if(m_selectedPlow >= 0)
-        m_plows[m_selectedPlow]->lower();
+    if(index >= 0 && index < m_motors.size())
+    {
+        m_motors[index]->triggerFault();
+        m_motors[index]->closeKSL();
+    }
 }
 
-void ProcessWidget::plowRaise()
+void ProcessWidget::motorReset(int index)
 {
-    if(m_selectedPlow >= 0)
-        m_plows[m_selectedPlow]->raise();
+    if(index >= 0 && index < m_motors.size())
+        m_motors[index]->resetFault();
 }
 
-void ProcessWidget::plowStop()
+void ProcessWidget::openKSL(int index)
 {
-    if(m_selectedPlow >= 0)
-        m_plows[m_selectedPlow]->stop();
+    if(index >= 0 && index < m_motors.size())
+        m_motors[index]->openKSL();
 }
 
-void ProcessWidget::damperOpen()
+void ProcessWidget::plowLower(int index)
 {
-    if(m_selectedDamper >= 0)
-        m_dampers[m_selectedDamper]->open();
+    if(index >= 0 && index < m_plows.size())
+        m_plows[index]->lower();
+
+    if(m_logger)
+    {
+        QString name = QString("ПС-%1%2")
+                           .arg(index < 10 ? "А" : "Б")
+                           .arg(index % 10 + 1);
+
+        m_logger->log(
+            QString("Опускание плужкового сбрасывателя %1").arg(name)
+            );
+    }
 }
 
-void ProcessWidget::damperClose()
+void ProcessWidget::plowRaise(int index)
 {
-    if(m_selectedDamper >= 0)
-        m_dampers[m_selectedDamper]->close();
+    if(index >= 0 && index < m_plows.size())
+        m_plows[index]->raise();
+
+    if(m_logger)
+    {
+        QString name = QString("ПС-%1%2")
+                           .arg(index < 10 ? "А" : "Б")
+                           .arg(index % 10 + 1);
+
+        m_logger->log(
+            QString("Поднятие плужкового сбрасывателя %1").arg(name)
+            );
+    }
+}
+
+void ProcessWidget::plowStop(int index)
+{
+    if(index >= 0 && index < m_plows.size())
+        m_plows[index]->stop();
+
+    if(m_logger)
+    {
+        QString name = QString("ПС-%1%2")
+                           .arg(index < 10 ? "А" : "Б")
+                           .arg(index % 10 + 1);
+
+        m_logger->log(
+            QString("Плужковый сбрасыватель %1 остановлен").arg(name)
+            );
+    }
+}
+
+void ProcessWidget::damperOpen(int index)
+{
+    if(index >= 0 && index < m_dampers.size())
+        m_dampers[index]->open();
+
+    if(m_logger)
+    {
+        QString name = QString("З-%1%2")
+                           .arg(index < 10 ? "А" : "Б")
+                           .arg(index % 10 + 1);
+
+        m_logger->log(
+            QString("Заслонка %1 открыта").arg(name)
+            );
+    }
+}
+
+void ProcessWidget::damperClose(int index)
+{
+    if(index >= 0 && index < m_dampers.size())
+        m_dampers[index]->close();
+
+    if(m_logger)
+    {
+        QString name = QString("З-%1%2")
+                           .arg(index < 10 ? "А" : "Б")
+                           .arg(index % 10 + 1);
+
+        m_logger->log(
+            QString("Заслонка %1 закрыта").arg(name)
+            );
+    }
 }
 
 void ProcessWidget::damperSetMode(int index, DamperMode mode)
 {
     if(index >= 0 && index < m_dampers.size())
         m_dampers[index]->setMode(mode);
+
+    if(m_logger)
+    {
+        QString name = QString("З-%1%2")
+                           .arg(index < 10 ? "А" : "Б")
+                           .arg(index % 10 + 1);
+
+        QString modeName = mode == DamperMode::Auto ? "автоматический" : "ручной";
+
+        m_logger->log(
+            QString("Установлен %1 режим для заслонки %2").arg(modeName, name)
+            );
+    }
+}
+
+void ProcessWidget::aspTurnOn(int index)
+{
+    if(index >= 0 && index < m_aspirations.size())
+        m_aspirations[index]->turnOn();
+
+    if(m_logger)
+    {
+        QString name = index == 0 ? "АУ-1" : "АУ-2";
+
+        m_logger->log(
+            QString("Аспирационная установка %1 включена").arg(name)
+            );
+    }
+}
+
+void ProcessWidget::aspTurnOff(int index)
+{
+    if(index >= 0 && index < m_aspirations.size())
+        m_aspirations[index]->turnOff();
+
+    if(m_logger)
+    {
+        QString name = index == 0 ? "АУ-1" : "АУ-2";
+
+        m_logger->log(
+            QString("Аспирационная установка %1 отключена").arg(name)
+            );
+    }
+}
+
+void ProcessWidget::aspSetMode(int index, AspirationMode mode)
+{
+    if(index >= 0 && index < m_aspirations.size())
+        m_aspirations[index]->setMode(mode);
+
+    if(m_logger)
+    {
+        QString name = index == 0 ? "АУ-1" : "АУ-2";
+        QString modeName = mode == AspirationMode::Auto ? "автоматический" : "ручной";
+
+        m_logger->log(
+            QString("Установлен %1 режим для аспирационной установки %2").arg(modeName, name)
+            );
+    }
+}
+
+void ProcessWidget::aspRequestCleaning(int index)
+{
+    if(index >= 0 && index < m_aspirations.size())
+        m_aspirations[index]->requestCleaning();
+}
+
+void ProcessWidget::setLogger(EventLogger *logger)
+{
+    m_logger = logger;
 }

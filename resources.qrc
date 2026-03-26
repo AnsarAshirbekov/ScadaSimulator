@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>icons/log.png</file>
+        <file>icons/ksl.png</file>
+        <file>icons/clean.png</file>
+    </qresource>
+</RCC>

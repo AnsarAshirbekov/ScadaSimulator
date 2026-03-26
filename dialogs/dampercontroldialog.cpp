@@ -6,8 +6,8 @@
 #include <QPushButton>
 #include <QCheckBox>
 
-DamperControlDialog::DamperControlDialog(const QString &name, QWidget *parent)
-    : QDialog(parent)
+DamperControlDialog::DamperControlDialog(int index, const QString &name, QWidget *parent)
+    : QDialog(parent), m_index(index)
 {
     setWindowTitle("Пульт заслонки");
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -41,16 +41,18 @@ DamperControlDialog::DamperControlDialog(const QString &name, QWidget *parent)
     layout->addWidget(m_closeButton);
     setLayout(layout);
 
-    connect(m_openButton, &QPushButton::clicked,
-            this, &DamperControlDialog::openRequested);
+    connect(m_openButton, &QPushButton::clicked, this, [this](){
+        emit openRequested(m_index);
+    });
 
-    connect(m_closeButton, &QPushButton::clicked,
-            this, &DamperControlDialog::closeRequested);
+    connect(m_closeButton, &QPushButton::clicked, this, [this](){
+        emit closeRequested(m_index);
+    });
 
     connect(m_modeSwitch, &QCheckBox::toggled,
             this, [this](bool checked)
             {
-                emit modeChanged(checked ? DamperMode::Manual : DamperMode::Auto);
+                emit modeChanged(m_index, checked ? DamperMode::Manual : DamperMode::Auto);
             });
 }
 

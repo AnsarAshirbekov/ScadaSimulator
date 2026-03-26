@@ -14,16 +14,21 @@ class MotorControlDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit MotorControlDialog(const QString& name, QWidget *parent = nullptr);
-    void updateState(ProcessState state);
+    explicit MotorControlDialog(int index, const QString& name, QWidget *parent = nullptr);
+    void updateState(MotorState state);
     void setSpeed(int speed);
 
 signals:
-    void startRequested();
-    void stopRequested();
-    void speedRequested(int speed);
+    void startRequested(int index);
+    void stopRequested(int index);
+    void speedRequested(int index, int speed);
+    void resetRequested(int index);
 
 private:
+    int m_index;
+    QPushButton *btnStart;
+    QPushButton *btnStop;
+    QPushButton *btnReset;
     QString m_equipmentName;
     QLabel *titleLabel;
     QLabel *lblState;
