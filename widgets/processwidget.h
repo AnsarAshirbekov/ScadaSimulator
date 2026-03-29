@@ -88,6 +88,11 @@ private:
     QRect getLampRect(const QRect& motorRect);
     QRect getBeltRect(int centerY, int w);
 
+    QVector<QRect> m_motorRects;
+    QVector<QRect> m_plowRects;
+    QVector<QRect> m_damperRects;
+    QVector<QRect> m_aspRects;
+
     void drawMotor(QPainter& p, const QRect& rect, int index);
     void drawLamp(QPainter& p, const QRect& rect, int index);
     void drawBelt(QPainter& p, const QRect& rect, int index);

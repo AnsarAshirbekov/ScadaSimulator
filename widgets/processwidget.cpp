@@ -370,6 +370,7 @@ void ProcessWidget::drawPlow(QPainter& p, int x, QRect beltRect, int plowPositio
     int damperIndex = motorIndex * PLOWS_PER_CONVEYOR + plowIndex;
 
     drawDamper(p, chute, mirror, damperName, damperIndex);
+    m_plowRects.append(plowFrame);
 }
 
 void ProcessWidget::drawPlows(QPainter& p, QRect beltRect, int conveyor)
@@ -428,6 +429,7 @@ void ProcessWidget::drawConveyor(QPainter& p, int conveyor, int centerY, int w)
         );
 
     drawPlows(p, beltRect, conveyor);
+    m_motorRects.append(motorRect);
 }
 
 void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror, const QString& name, int index)
@@ -533,6 +535,7 @@ void ProcessWidget::drawDamper(QPainter& p, const QRect& chuteRect, bool mirror,
 
         p.restore();
     }
+    m_damperRects.append(pipe);
 }
 
 void ProcessWidget::drawMainPipes(QPainter& p)
@@ -547,7 +550,6 @@ void ProcessWidget::drawMainPipes(QPainter& p)
     p.setBrush(QColor(0,100,0));
     p.setPen(Qt::black);
 
-    // первая магистраль
     int startX = m_pipeEnds[0].x() - 70;
     int endX   = m_pipeEnds[4].x() + 20;
 
@@ -580,7 +582,6 @@ void ProcessWidget::drawMainPipes(QPainter& p)
         p.restore();
     }
 
-    // вторая магистраль
     startX = m_pipeEnds[5].x() - 20;
     endX   = m_pipeEnds[9].x() + 70;
 
@@ -613,7 +614,6 @@ void ProcessWidget::drawMainPipes(QPainter& p)
         p.restore();
     }
 
-    // левая установка
     drawAspiration(p, m_pipeEnds[0].x() - 110, y, "АУ-1", 0);
 
     QFont font = p.font();
@@ -622,8 +622,13 @@ void ProcessWidget::drawMainPipes(QPainter& p)
     p.setFont(font);
     p.setPen(Qt::black);
 
-    // правая установка
     drawAspiration(p, m_pipeEnds[9].x() + 110, y, "АУ-2", 1);
+
+    QRect asp1(m_pipeEnds[0].x() - 110 - 40, y - 40, 80, 80);
+    QRect asp2(m_pipeEnds[9].x() + 110 - 40, y - 40, 80, 80);
+
+    m_aspRects.append(asp1);
+    m_aspRects.append(asp2);
 }
 
 void ProcessWidget::drawAspiration(QPainter& p, int x, int y, const QString& name, int index)
@@ -685,6 +690,11 @@ void ProcessWidget::drawAspiration(QPainter& p, int x, int y, const QString& nam
 
 void ProcessWidget::paintEvent(QPaintEvent *)
 {
+    m_motorRects.clear();
+    m_plowRects.clear();
+    m_damperRects.clear();
+    m_aspRects.clear();
+
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     p.setPen(Qt::black);
@@ -706,146 +716,28 @@ void ProcessWidget::paintEvent(QPaintEvent *)
 
 void ProcessWidget::mousePressEvent(QMouseEvent *event)
 {
-    int h = height();
-    int w = width();
-
-    int centerY = h / 4;
-
-    for(int conveyor = 0; conveyor < CONVEYOR_COUNT; conveyor++)
+    for(int i = 0; i < m_motorRects.size(); i++)
     {
-        QRect motorRect =
-            getMotorRect(centerY).translated(0, conveyor * CONVEYOR_SPACING);
-
-        if(motorRect.contains(event->pos()))
-        {
-            emit motorClicked(conveyor);
-        }
+        if(m_motorRects[i].contains(event->pos()))
+            emit motorClicked(i);
     }
 
-    for(int conveyor = 0; conveyor < CONVEYOR_COUNT; conveyor++)
+    for(int i = 0; i < m_plowRects.size(); i++)
     {
-        QRect beltRect =
-            getBeltRect(centerY, w).translated(0, conveyor * CONVEYOR_SPACING);
-
-        for(int i = 0; i < PLOWS_PER_CONVEYOR; i++)
-        {
-            double t = (double)i / PLOWS_PER_CONVEYOR;
-
-            int plowX =
-                beltRect.left() +
-                beltRect.width() * (0.1 + t * 0.8);
-
-            QRect plowFrame(
-                plowX - 30,
-                beltRect.top() - 10,
-                60,
-                beltRect.height() + 20
-                );
-
-            if(plowFrame.contains(event->pos()))
-            {
-                int index = conveyor * PLOWS_PER_CONVEYOR + i;
-
-                emit plowClicked(index);
-            }
-        }
+        if(m_plowRects[i].contains(event->pos()))
+            emit plowClicked(i);
     }
 
-    for(int conveyor = 0; conveyor < CONVEYOR_COUNT; conveyor++)
+    for(int i = 0; i < m_damperRects.size(); i++)
     {
-        QRect beltRect =
-            getBeltRect(centerY, w).translated(0, conveyor * CONVEYOR_SPACING);
-
-        for(int i = 0; i < PLOWS_PER_CONVEYOR; i++)
-        {
-            double t = (double)i / PLOWS_PER_CONVEYOR;
-
-            int plowX =
-                beltRect.left() +
-                beltRect.width() * (0.1 + t * 0.8);
-
-            QRect plowFrame(
-                plowX - 30,
-                beltRect.top() - 10,
-                60,
-                beltRect.height() + 20
-                );
-
-            QRect chute;
-
-            if(conveyor == 0)
-            {
-                chute = QRect(
-                    plowFrame.left() - 15,
-                    beltRect.bottom() + 10,
-                    plowFrame.width(),
-                    40
-                    );
-            }
-            else
-            {
-                chute = QRect(
-                    plowFrame.left() - 15,
-                    beltRect.top() - 50,
-                    plowFrame.width(),
-                    40
-                    );
-            }
-
-            QRect pipe;
-
-            if(conveyor == 0)
-            {
-                pipe = QRect(
-                    chute.left() + chute.width()/2 - 8,
-                    chute.bottom(),
-                    16,
-                    80
-                    );
-            }
-            else
-            {
-                pipe = QRect(
-                    chute.left() + chute.width()/2 - 8,
-                    chute.top() - 80,
-                    16,
-                    80
-                    );
-            }
-
-            if(pipe.contains(event->pos()))
-            {
-                int index = conveyor * PLOWS_PER_CONVEYOR + i;
-
-                emit damperClicked(index);
-            }
-        }
+        if(m_damperRects[i].contains(event->pos()))
+            emit damperClicked(i);
     }
 
-    int y = (m_pipeEnds[0].y() + m_pipeEnds[10].y()) / 2;
-
-    QRect asp1(
-        m_pipeEnds[0].x() - 110 - 40,
-        y - 40,
-        80,
-        80
-        );
-
-    QRect asp2(
-        m_pipeEnds[9].x() + 110 - 40,
-        y - 40,
-        80,
-        80
-        );
-
-    if(asp1.contains(event->pos()))
+    for(int i = 0; i < m_aspRects.size(); i++)
     {
-        emit aspClicked(0);
-    }
-
-    if(asp2.contains(event->pos()))
-    {
-        emit aspClicked(1);
+        if(m_aspRects[i].contains(event->pos()))
+            emit aspClicked(i);
     }
 }
 
